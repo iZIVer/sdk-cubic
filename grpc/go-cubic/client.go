@@ -29,6 +29,7 @@ import (
 	"github.com/golang/protobuf/ptypes/empty"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"time"
 )
 
 // Client is an object for interacting with the Cubic GRPC API.
@@ -41,6 +42,8 @@ type Client struct {
 	tlscfg           tls.Config
 	streamingBufSize uint32
 }
+
+const connectionTimeout = 10*time.Second
 
 // NewClient creates a new Client that connects to a Cubic Server listening on
 // the provided address.  Transport security is enabled by default.  Use Options
@@ -64,7 +67,10 @@ func NewClient(addr string, opts ...Option) (*Client, error) {
 		dopt = grpc.WithTransportCredentials(credentials.NewTLS(&c.tlscfg))
 	}
 
-	conn, err := grpc.Dial(addr, dopt)
+	ctx, cancel := context.WithTimeout(context.Background(), connectionTimeout)
+	defer cancel()
+
+	conn, err := grpc.DialContext(ctx, addr, dopt, grpc.WithBlock())
 	if err != nil {
 		return nil, fmt.Errorf("unable to create a client: %v", err)
 	}
